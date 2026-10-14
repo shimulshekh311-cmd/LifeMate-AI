@@ -1,0 +1,22 @@
+# Gradle and build caches
+.gradle/
+build/
+**/build/
+.build-outputs/
+.kotlin/
+
+# Android Studio / IntelliJ
+*.iml
+.idea/
+.navigation/
+captures/
+.externalNativeBuild/
+.cxx/
+
+# Environment files
+.env
+.dev.env.json
+
+# OS specific
+.DS_Store
+Thumbs.db
