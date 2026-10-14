@@ -1,0 +1,6 @@
+{
+  "name": "LifeMate AI",
+  "description": "AI-Powered Personal Life Assistant for daily tasks, guided exercise, study, job applications, accounts, and habits in Bangla and English.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
