@@ -432,6 +432,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun updateReligiousActivity(activity: ReligiousActivityEntity) {
+        viewModelScope.launch { repository.updateReligiousActivity(activity) }
+    }
+
     fun deleteReligiousActivity(id: Long) {
         viewModelScope.launch { repository.deleteReligiousActivity(id) }
     }

@@ -20,6 +20,10 @@ import com.example.ui.components.ConfirmDeleteDialog
 import com.example.ui.components.EmptyStateView
 import com.example.ui.theme.*
 import com.example.ui.viewmodel.MainViewModel
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Date
+import java.util.Locale
 
 @Composable
 fun RoutineScreen(
@@ -224,50 +228,230 @@ fun AddTaskHabitDialog(
     var title by remember { mutableStateOf("") }
     var desc by remember { mutableStateOf("") }
     var type by remember { mutableStateOf("TASK") }
+
+    val todayDate = remember {
+        SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
+    }
+    val tomorrowDate = remember {
+        val cal = Calendar.getInstance()
+        cal.add(Calendar.DAY_OF_YEAR, 1)
+        SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(cal.time)
+    }
+
+    var selectedDate by remember { mutableStateOf(todayDate) }
     var time by remember { mutableStateOf("08:00 AM") }
     var recurrence by remember { mutableStateOf("NONE") }
+    var titleError by remember { mutableStateOf(false) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(I18n.t("add_item"), fontWeight = FontWeight.Bold) },
+        title = {
+            Text(
+                text = if (type == "TASK")
+                    (if (I18n.currentLanguage == "bn") "নতুন কাজ (Task) তৈরি" else "Create New Task")
+                else
+                    (if (I18n.currentLanguage == "bn") "নতুন অভ্যাস (Habit) শুরু" else "Start New Habit"),
+                fontWeight = FontWeight.Bold
+            )
+        },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    FilterChip(
-                        selected = type == "TASK",
-                        onClick = { type = "TASK"; recurrence = "NONE" },
-                        label = { Text(I18n.t("type_task")) }
-                    )
-                    FilterChip(
-                        selected = type == "HABIT",
-                        onClick = { type = "HABIT"; recurrence = "DAILY" },
-                        label = { Text(I18n.t("type_habit")) }
+            LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                // Type Switcher
+                item {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        FilterChip(
+                            selected = type == "TASK",
+                            onClick = {
+                                type = "TASK"
+                                recurrence = "NONE"
+                            },
+                            label = { Text(I18n.t("type_task")) },
+                            leadingIcon = {
+                                Icon(Icons.Default.CheckCircleOutline, contentDescription = null, modifier = Modifier.size(16.dp))
+                            }
+                        )
+                        FilterChip(
+                            selected = type == "HABIT",
+                            onClick = {
+                                type = "HABIT"
+                                recurrence = "DAILY"
+                            },
+                            label = { Text(I18n.t("type_habit")) },
+                            leadingIcon = {
+                                Icon(Icons.Default.Repeat, contentDescription = null, modifier = Modifier.size(16.dp))
+                            }
+                        )
+                    }
+                }
+
+                // Title Input
+                item {
+                    OutlinedTextField(
+                        value = title,
+                        onValueChange = {
+                            title = it
+                            if (it.isNotBlank()) titleError = false
+                        },
+                        label = {
+                            Text(
+                                if (type == "TASK") (if (I18n.currentLanguage == "bn") "টাস্কের নাম *" else "Task Name *")
+                                else (if (I18n.currentLanguage == "bn") "অভ্যাসের নাম *" else "Habit Name *")
+                            )
+                        },
+                        isError = titleError,
+                        supportingText = if (titleError) {
+                            { Text(if (I18n.currentLanguage == "bn") "নাম প্রদান করা বাধ্যতামূলক" else "Title is required", color = RoseError) }
+                        } else null,
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
                     )
                 }
-                OutlinedTextField(
-                    value = title,
-                    onValueChange = { title = it },
-                    label = { Text(I18n.t("item_title")) },
-                    modifier = Modifier.fillMaxWidth()
-                )
-                OutlinedTextField(
-                    value = desc,
-                    onValueChange = { desc = it },
-                    label = { Text(I18n.t("item_desc")) },
-                    modifier = Modifier.fillMaxWidth()
-                )
-                OutlinedTextField(
-                    value = time,
-                    onValueChange = { time = it },
-                    label = { Text(I18n.t("due_time")) },
-                    modifier = Modifier.fillMaxWidth()
-                )
+
+                // Date Presets & Field
+                item {
+                    Text(
+                        text = if (I18n.currentLanguage == "bn") "তারিখ:" else "Scheduled Date:",
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 13.sp
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        FilterChip(
+                            selected = selectedDate == todayDate,
+                            onClick = { selectedDate = todayDate },
+                            label = { Text(if (I18n.currentLanguage == "bn") "আজকে" else "Today") }
+                        )
+                        FilterChip(
+                            selected = selectedDate == tomorrowDate,
+                            onClick = { selectedDate = tomorrowDate },
+                            label = { Text(if (I18n.currentLanguage == "bn") "কালকে" else "Tomorrow") }
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(4.dp))
+                    OutlinedTextField(
+                        value = selectedDate,
+                        onValueChange = { selectedDate = it },
+                        label = { Text("YYYY-MM-DD") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+
+                // Time Presets & Field
+                item {
+                    Text(
+                        text = if (I18n.currentLanguage == "bn") "সময় ও রিমাইন্ডার:" else "Time & Reminder:",
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 13.sp
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        listOf("08:00 AM", "01:00 PM", "06:00 PM", "10:00 PM").forEach { quickTime ->
+                            FilterChip(
+                                selected = time == quickTime,
+                                onClick = { time = quickTime },
+                                label = { Text(quickTime, fontSize = 11.sp) }
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(4.dp))
+                    OutlinedTextField(
+                        value = time,
+                        onValueChange = { time = it },
+                        label = { Text(I18n.t("due_time")) },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+
+                // Recurrence Selector
+                item {
+                    Text(
+                        text = if (I18n.currentLanguage == "bn") "পুনরাবৃত্তি:" else "Recurrence:",
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 13.sp
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        FilterChip(
+                            selected = recurrence == "NONE",
+                            onClick = { recurrence = "NONE" },
+                            label = { Text(if (I18n.currentLanguage == "bn") "একবার" else "Once") }
+                        )
+                        FilterChip(
+                            selected = recurrence == "DAILY",
+                            onClick = { recurrence = "DAILY" },
+                            label = { Text(if (I18n.currentLanguage == "bn") "প্রতিদিন" else "Daily") }
+                        )
+                        FilterChip(
+                            selected = recurrence == "WEEKLY",
+                            onClick = { recurrence = "WEEKLY" },
+                            label = { Text(if (I18n.currentLanguage == "bn") "সাপ্তাহিক" else "Weekly") }
+                        )
+                    }
+                }
+
+                // Description
+                item {
+                    OutlinedTextField(
+                        value = desc,
+                        onValueChange = { desc = it },
+                        label = { Text(I18n.t("item_desc")) },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+
+                // Notification Alarm Cue
+                item {
+                    Surface(
+                        color = PrimaryViolet.copy(alpha = 0.10f),
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(10.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.NotificationsActive,
+                                contentDescription = null,
+                                tint = PrimaryViolet,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = if (I18n.currentLanguage == "bn")
+                                    "নির্ধারিত সময়ে স্বয়ংক্রিয় নোটিফিকেশন অ্যালার্ম পাঠানো হবে।"
+                                else
+                                    "A reminder notification alarm will trigger at the scheduled time.",
+                                fontSize = 11.sp,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+                    }
+                }
             }
         },
         confirmButton = {
             Button(
                 onClick = {
-                    if (title.isNotBlank()) onSave(title, desc, type, time, "", recurrence)
+                    if (title.isBlank()) {
+                        titleError = true
+                    } else {
+                        onSave(title.trim(), desc.trim(), type, time.trim(), selectedDate.trim(), recurrence)
+                    }
                 }
             ) {
                 Text(I18n.t("save"))
@@ -290,48 +474,90 @@ fun EditTaskHabitDialog(
     var time by remember { mutableStateOf(item.scheduledTime) }
     var date by remember { mutableStateOf(item.scheduledDate) }
     var recurrence by remember { mutableStateOf(item.recurrence) }
+    var titleError by remember { mutableStateOf(false) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("কাজ/অভ্যাস সম্পাদনা", fontWeight = FontWeight.Bold) },
+        title = {
+            Text(
+                if (I18n.currentLanguage == "bn") "কাজ/অভ্যাস সম্পাদনা" else "Edit Task / Habit",
+                fontWeight = FontWeight.Bold
+            )
+        },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                OutlinedTextField(
-                    value = title,
-                    onValueChange = { title = it },
-                    label = { Text(I18n.t("item_title")) },
-                    modifier = Modifier.fillMaxWidth()
-                )
-                OutlinedTextField(
-                    value = desc,
-                    onValueChange = { desc = it },
-                    label = { Text(I18n.t("item_desc")) },
-                    modifier = Modifier.fillMaxWidth()
-                )
-                OutlinedTextField(
-                    value = time,
-                    onValueChange = { time = it },
-                    label = { Text(I18n.t("due_time")) },
-                    modifier = Modifier.fillMaxWidth()
-                )
-                OutlinedTextField(
-                    value = date,
-                    onValueChange = { date = it },
-                    label = { Text("তারিখ (YYYY-MM-DD)") },
-                    modifier = Modifier.fillMaxWidth()
-                )
+            LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                item {
+                    OutlinedTextField(
+                        value = title,
+                        onValueChange = {
+                            title = it
+                            if (it.isNotBlank()) titleError = false
+                        },
+                        label = { Text(I18n.t("item_title")) },
+                        isError = titleError,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+                item {
+                    OutlinedTextField(
+                        value = date,
+                        onValueChange = { date = it },
+                        label = { Text("তারিখ (YYYY-MM-DD)") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+                item {
+                    OutlinedTextField(
+                        value = time,
+                        onValueChange = { time = it },
+                        label = { Text(I18n.t("due_time")) },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+                item {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        FilterChip(
+                            selected = recurrence == "NONE",
+                            onClick = { recurrence = "NONE" },
+                            label = { Text(if (I18n.currentLanguage == "bn") "একবার" else "Once") }
+                        )
+                        FilterChip(
+                            selected = recurrence == "DAILY",
+                            onClick = { recurrence = "DAILY" },
+                            label = { Text(if (I18n.currentLanguage == "bn") "প্রতিদিন" else "Daily") }
+                        )
+                        FilterChip(
+                            selected = recurrence == "WEEKLY",
+                            onClick = { recurrence = "WEEKLY" },
+                            label = { Text(if (I18n.currentLanguage == "bn") "সাপ্তাহিক" else "Weekly") }
+                        )
+                    }
+                }
+                item {
+                    OutlinedTextField(
+                        value = desc,
+                        onValueChange = { desc = it },
+                        label = { Text(I18n.t("item_desc")) },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
             }
         },
         confirmButton = {
             Button(
                 onClick = {
-                    if (title.isNotBlank()) {
+                    if (title.isBlank()) {
+                        titleError = true
+                    } else {
                         onSave(
                             item.copy(
-                                title = title,
-                                description = desc,
-                                scheduledTime = time,
-                                scheduledDate = date,
+                                title = title.trim(),
+                                description = desc.trim(),
+                                scheduledTime = time.trim(),
+                                scheduledDate = date.trim(),
                                 recurrence = recurrence
                             )
                         )

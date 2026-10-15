@@ -457,6 +457,7 @@ fun CreateExercisePlanDialog(
     var itemName by remember { mutableStateOf("") }
     var itemDurationStr by remember { mutableStateOf("30") }
     var itemRepsStr by remember { mutableStateOf("0") }
+    var titleError by remember { mutableStateOf(false) }
 
     val itemsList = remember { mutableStateListOf<ExerciseItemEntity>() }
 
@@ -468,8 +469,15 @@ fun CreateExercisePlanDialog(
                 item {
                     OutlinedTextField(
                         value = title,
-                        onValueChange = { title = it },
-                        label = { Text(I18n.t("plan_title")) },
+                        onValueChange = {
+                            title = it
+                            if (it.isNotBlank()) titleError = false
+                        },
+                        label = { Text(I18n.t("plan_title") + " *") },
+                        isError = titleError,
+                        supportingText = if (titleError) {
+                            { Text(if (I18n.currentLanguage == "bn") "পরিকল্পনার নাম বাধ্যতামূলক" else "Plan title is required", color = RoseError) }
+                        } else null,
                         modifier = Modifier.fillMaxWidth()
                     )
                 }
@@ -477,32 +485,65 @@ fun CreateExercisePlanDialog(
                     OutlinedTextField(
                         value = desc,
                         onValueChange = { desc = it },
-                        label = { Text("বিবরণ") },
+                        label = { Text(if (I18n.currentLanguage == "bn") "বিবরণ (ঐচ্ছিক)" else "Description (Optional)") },
                         modifier = Modifier.fillMaxWidth()
                     )
                 }
                 item {
+                    Text(
+                        text = if (I18n.currentLanguage == "bn") "রাউন্ড ও বিশ্রামের সময়:" else "Rounds & Rest:",
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 13.sp
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        OutlinedTextField(
-                            value = roundsStr,
-                            onValueChange = { roundsStr = it },
-                            label = { Text(I18n.t("rounds_count")) },
-                            modifier = Modifier.weight(1f)
-                        )
-                        OutlinedTextField(
-                            value = restSecStr,
-                            onValueChange = { restSecStr = it },
-                            label = { Text(I18n.t("rest_duration")) },
-                            modifier = Modifier.weight(1f)
-                        )
+                        listOf("1", "2", "3", "4").forEach { r ->
+                            FilterChip(
+                                selected = roundsStr == r,
+                                onClick = { roundsStr = r },
+                                label = { Text(if (I18n.currentLanguage == "bn") "$r রাউন্ড" else "$r Rds", fontSize = 11.sp) }
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        listOf("15", "30", "45", "60").forEach { sec ->
+                            FilterChip(
+                                selected = restSecStr == sec,
+                                onClick = { restSecStr = sec },
+                                label = { Text(if (I18n.currentLanguage == "bn") "$sec সে. বিশ্রাম" else "$sec s rest", fontSize = 11.sp) }
+                            )
+                        }
                     }
                 }
 
                 item {
-                    Text("ব্যায়ামসমূহ যোগ করুন:", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = if (I18n.currentLanguage == "bn") "ব্যায়ামসমূহ যোগ করুন:" else "Add Exercises:",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 13.sp
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    // Quick Suggestions
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        listOf("পুশ-আপ", "স্কোয়াট", "প্ল্যাঙ্ক", "লাঞ্জ").forEach { suggestion ->
+                            SuggestionChip(
+                                onClick = { itemName = suggestion },
+                                label = { Text(suggestion, fontSize = 11.sp) }
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(4.dp))
                     OutlinedTextField(
                         value = itemName,
                         onValueChange = { itemName = it },
@@ -518,7 +559,7 @@ fun CreateExercisePlanDialog(
                         OutlinedTextField(
                             value = itemDurationStr,
                             onValueChange = { itemDurationStr = it },
-                            label = { Text("সেকেন্ড") },
+                            label = { Text(if (I18n.currentLanguage == "bn") "সময় (সেকেন্ড)" else "Seconds") },
                             modifier = Modifier.weight(1f)
                         )
                         OutlinedTextField(
@@ -535,7 +576,7 @@ fun CreateExercisePlanDialog(
                                 itemsList.add(
                                     ExerciseItemEntity(
                                         planId = 0,
-                                        name = itemName,
+                                        name = itemName.trim(),
                                         durationSeconds = itemDurationStr.toIntOrNull() ?: 30,
                                         reps = itemRepsStr.toIntOrNull() ?: 0,
                                         orderIndex = itemsList.size
@@ -546,19 +587,35 @@ fun CreateExercisePlanDialog(
                         },
                         modifier = Modifier.fillMaxWidth()
                     ) {
+                        Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
                         Text(I18n.t("add_exercise"))
                     }
                 }
 
-                items(itemsList) { itm ->
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text("• ${itm.name} (${if (itm.durationSeconds > 0) "${itm.durationSeconds}s" else "${itm.reps} reps"})")
-                        IconButton(onClick = { itemsList.remove(itm) }) {
-                            Icon(Icons.Default.Close, contentDescription = "Remove", tint = RoseError)
+                if (itemsList.isNotEmpty()) {
+                    items(itemsList) { itm ->
+                        Card(
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                            shape = RoundedCornerShape(8.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 12.dp, vertical = 6.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "• ${itm.name} (${if (itm.durationSeconds > 0) "${itm.durationSeconds}s" else "${itm.reps} reps"})",
+                                    fontWeight = FontWeight.SemiBold,
+                                    fontSize = 13.sp
+                                )
+                                IconButton(onClick = { itemsList.remove(itm) }, modifier = Modifier.size(28.dp)) {
+                                    Icon(Icons.Default.Close, contentDescription = "Remove", tint = RoseError, modifier = Modifier.size(16.dp))
+                                }
+                            }
                         }
                     }
                 }
@@ -567,16 +624,19 @@ fun CreateExercisePlanDialog(
         confirmButton = {
             Button(
                 onClick = {
-                    if (title.isNotBlank()) {
+                    if (title.isBlank()) {
+                        titleError = true
+                    } else {
                         val rest = restSecStr.toIntOrNull() ?: 15
                         val rounds = roundsStr.toIntOrNull() ?: 1
                         val finalItems = if (itemsList.isEmpty()) {
                             listOf(
                                 ExerciseItemEntity(planId = 0, name = "স্ট্রেচিং", durationSeconds = 30),
-                                ExerciseItemEntity(planId = 0, name = "পুশ-আপ", reps = 10)
+                                ExerciseItemEntity(planId = 0, name = "পুশ-আপ", reps = 10),
+                                ExerciseItemEntity(planId = 0, name = "স্কোয়াট", reps = 15)
                             )
                         } else itemsList.toList()
-                        onSave(title, desc, rest, rounds, finalItems)
+                        onSave(title.trim(), desc.trim(), rest, rounds, finalItems)
                     }
                 }
             ) {

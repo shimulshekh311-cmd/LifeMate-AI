@@ -30,6 +30,7 @@ fun ReligionScreen(
     val activities by viewModel.religiousActivities.collectAsState()
 
     var showAddDialog by remember { mutableStateOf(false) }
+    var itemToEdit by remember { mutableStateOf<ReligiousActivityEntity?>(null) }
     var itemToDelete by remember { mutableStateOf<ReligiousActivityEntity?>(null) }
 
     val completedCount = activities.count { it.isCompletedToday }
@@ -119,6 +120,7 @@ fun ReligionScreen(
                     ReligiousItemCard(
                         activity = activity,
                         onToggle = { viewModel.toggleReligiousActivity(activity) },
+                        onEdit = { itemToEdit = activity },
                         onDelete = { itemToDelete = activity }
                     )
                 }
@@ -147,12 +149,24 @@ fun ReligionScreen(
             }
         )
     }
+
+    if (itemToEdit != null) {
+        EditReligiousActivityDialog(
+            activity = itemToEdit!!,
+            onDismiss = { itemToEdit = null },
+            onSave = { updated ->
+                viewModel.updateReligiousActivity(updated)
+                itemToEdit = null
+            }
+        )
+    }
 }
 
 @Composable
 fun ReligiousItemCard(
     activity: ReligiousActivityEntity,
     onToggle: () -> Unit,
+    onEdit: () -> Unit,
     onDelete: () -> Unit
 ) {
     Card(
@@ -193,8 +207,11 @@ fun ReligiousItemCard(
                     )
                 }
             }
+            IconButton(onClick = onEdit) {
+                Icon(Icons.Default.Edit, contentDescription = "Edit", tint = PrimaryViolet, modifier = Modifier.size(20.dp))
+            }
             IconButton(onClick = onDelete) {
-                Icon(Icons.Default.Delete, contentDescription = "Delete", tint = RoseError)
+                Icon(Icons.Default.Delete, contentDescription = "Delete", tint = RoseError, modifier = Modifier.size(20.dp))
             }
         }
     }
@@ -208,36 +225,175 @@ fun AddReligiousActivityDialog(
     var title by remember { mutableStateOf("") }
     var time by remember { mutableStateOf("") }
     var notes by remember { mutableStateOf("") }
+    var titleError by remember { mutableStateOf(false) }
+
+    val prayerPresets = listOf(
+        Pair("ফজর", "05:00 AM"),
+        Pair("যোহর", "01:15 PM"),
+        Pair("আসর", "04:30 PM"),
+        Pair("মাগরিব", "06:00 PM"),
+        Pair("এশা", "08:00 PM"),
+        Pair("তাহাজ্জুদ", "04:00 AM"),
+        Pair("কুরআন তিলাওয়াত", "06:30 AM"),
+        Pair("জিকির ও দু\'আ", "07:00 AM")
+    )
 
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(I18n.t("add_observance"), fontWeight = FontWeight.Bold) },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                OutlinedTextField(
-                    value = title,
-                    onValueChange = { title = it },
-                    label = { Text(I18n.t("observance_title")) },
-                    modifier = Modifier.fillMaxWidth()
-                )
-                OutlinedTextField(
-                    value = time,
-                    onValueChange = { time = it },
-                    label = { Text("সময় (যেমন: 05:00 AM)") },
-                    modifier = Modifier.fillMaxWidth()
-                )
-                OutlinedTextField(
-                    value = notes,
-                    onValueChange = { notes = it },
-                    label = { Text(I18n.t("observance_notes")) },
-                    modifier = Modifier.fillMaxWidth()
-                )
+            LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                item {
+                    Text(
+                        text = if (I18n.currentLanguage == "bn") "দ্রুত নির্বাচন (ওয়াক্ত/আমল):" else "Quick Presets:",
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 13.sp
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        prayerPresets.take(4).forEach { (presetName, presetTime) ->
+                            SuggestionChip(
+                                onClick = {
+                                    title = presetName
+                                    time = presetTime
+                                    titleError = false
+                                },
+                                label = { Text(presetName, fontSize = 11.sp) }
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        prayerPresets.drop(4).forEach { (presetName, presetTime) ->
+                            SuggestionChip(
+                                onClick = {
+                                    title = presetName
+                                    time = presetTime
+                                    titleError = false
+                                },
+                                label = { Text(presetName, fontSize = 11.sp) }
+                            )
+                        }
+                    }
+                }
+
+                item {
+                    OutlinedTextField(
+                        value = title,
+                        onValueChange = {
+                            title = it
+                            if (it.isNotBlank()) titleError = false
+                        },
+                        label = { Text(I18n.t("observance_title") + " *") },
+                        isError = titleError,
+                        supportingText = if (titleError) {
+                            { Text(if (I18n.currentLanguage == "bn") "নাম প্রদান করা বাধ্যতামূলক" else "Title is required", color = RoseError) }
+                        } else null,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+                item {
+                    OutlinedTextField(
+                        value = time,
+                        onValueChange = { time = it },
+                        label = { Text("সময় (যেমন: 05:00 AM)") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+                item {
+                    OutlinedTextField(
+                        value = notes,
+                        onValueChange = { notes = it },
+                        label = { Text(I18n.t("observance_notes")) },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
             }
         },
         confirmButton = {
             Button(
                 onClick = {
-                    if (title.isNotBlank()) onSave(title, time, notes)
+                    if (title.isBlank()) {
+                        titleError = true
+                    } else {
+                        onSave(title.trim(), time.trim(), notes.trim())
+                    }
+                }
+            ) {
+                Text(I18n.t("save"))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(I18n.t("cancel")) }
+        }
+    )
+}
+
+@Composable
+fun EditReligiousActivityDialog(
+    activity: ReligiousActivityEntity,
+    onDismiss: () -> Unit,
+    onSave: (ReligiousActivityEntity) -> Unit
+) {
+    var title by remember { mutableStateOf(activity.title) }
+    var time by remember { mutableStateOf(activity.scheduledTime) }
+    var notes by remember { mutableStateOf(activity.notes) }
+    var titleError by remember { mutableStateOf(false) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                if (I18n.currentLanguage == "bn") "আমল/প্রার্থনা সম্পাদনা" else "Edit Observance",
+                fontWeight = FontWeight.Bold
+            )
+        },
+        text = {
+            LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                item {
+                    OutlinedTextField(
+                        value = title,
+                        onValueChange = {
+                            title = it
+                            if (it.isNotBlank()) titleError = false
+                        },
+                        label = { Text(I18n.t("observance_title")) },
+                        isError = titleError,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+                item {
+                    OutlinedTextField(
+                        value = time,
+                        onValueChange = { time = it },
+                        label = { Text("সময় (যেমন: 05:00 AM)") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+                item {
+                    OutlinedTextField(
+                        value = notes,
+                        onValueChange = { notes = it },
+                        label = { Text(I18n.t("observance_notes")) },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    if (title.isBlank()) {
+                        titleError = true
+                    } else {
+                        onSave(activity.copy(title = title.trim(), scheduledTime = time.trim(), notes = notes.trim()))
+                    }
                 }
             ) {
                 Text(I18n.t("save"))

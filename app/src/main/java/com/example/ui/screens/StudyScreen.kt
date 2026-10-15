@@ -19,6 +19,9 @@ import androidx.compose.ui.unit.sp
 import com.example.core.i18n.I18n
 import com.example.data.local.entities.StudyBookEntity
 import com.example.data.local.entities.StudyChapterEntity
+import android.content.Intent
+import android.net.Uri
+import androidx.compose.ui.platform.LocalContext
 import com.example.ui.components.ConfirmDeleteDialog
 import com.example.ui.components.EmptyStateView
 import com.example.ui.theme.*
@@ -37,10 +40,15 @@ fun StudyScreen(
     var showAddBookDialog by remember { mutableStateOf(false) }
     var showAddChapterDialog by remember { mutableStateOf(false) }
     var chapterToDelete by remember { mutableStateOf<StudyChapterEntity?>(null) }
+    var bookToDelete by remember { mutableStateOf<StudyBookEntity?>(null) }
 
     LaunchedEffect(books) {
-        if (selectedBookId == null && books.isNotEmpty()) {
-            selectedBookId = books.first().id
+        if (books.isNotEmpty()) {
+            if (selectedBookId == null || books.none { it.id == selectedBookId }) {
+                selectedBookId = books.first().id
+            }
+        } else {
+            selectedBookId = null
         }
     }
 
@@ -55,13 +63,16 @@ fun StudyScreen(
         floatingActionButton = {
             FloatingActionButton(
                 onClick = {
-                    if (selectedBookId != null) showAddChapterDialog = true
-                    else showAddBookDialog = true
+                    if (books.isEmpty()) showAddBookDialog = true
+                    else showAddChapterDialog = true
                 },
                 containerColor = PrimaryViolet,
                 contentColor = Color.White
             ) {
-                Icon(Icons.Default.Add, contentDescription = I18n.t("add_chapter"))
+                Icon(
+                    Icons.Default.Add,
+                    contentDescription = if (books.isEmpty()) I18n.t("add_book") else I18n.t("add_chapter")
+                )
             }
         }
     ) { padding ->
@@ -90,19 +101,71 @@ fun StudyScreen(
                         Text(I18n.t("add_book"))
                     }
                 }
+            }
 
-                ScrollableTabRow(
-                    selectedTabIndex = books.indexOfFirst { it.id == selectedBookId }.coerceAtLeast(0),
-                    edgePadding = 0.dp,
-                    containerColor = Color.Transparent,
-                    contentColor = PrimaryViolet
-                ) {
-                    books.forEach { book ->
-                        Tab(
-                            selected = book.id == selectedBookId,
-                            onClick = { selectedBookId = book.id },
-                            text = { Text(book.title, fontWeight = FontWeight.SemiBold) }
-                        )
+            if (books.isEmpty()) {
+                item {
+                    Card(
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(24.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.MenuBook,
+                                contentDescription = null,
+                                tint = PrimaryViolet,
+                                modifier = Modifier.size(48.dp)
+                            )
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Text(
+                                text = if (I18n.currentLanguage == "bn") "কোনো বই বা বিষয় নেই" else "No Books Added Yet",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Text(
+                                text = if (I18n.currentLanguage == "bn")
+                                    "পড়াশোনা ও পরীক্ষার প্রস্তুতি গোছাতে আপনার প্রথম বই বা বিষয় যোগ করুন।"
+                                else
+                                    "Add your first subject or book to organize topics and track your progress.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                            )
+                            Spacer(modifier = Modifier.height(14.dp))
+                            Button(
+                                onClick = { showAddBookDialog = true },
+                                colors = ButtonDefaults.buttonColors(containerColor = PrimaryViolet)
+                            ) {
+                                Icon(Icons.Default.Add, contentDescription = null)
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(I18n.t("add_book"))
+                            }
+                        }
+                    }
+                }
+            } else {
+                item {
+                    val safeIndex = books.indexOfFirst { it.id == selectedBookId }.let { if (it >= 0) it else 0 }
+                    ScrollableTabRow(
+                        selectedTabIndex = safeIndex,
+                        edgePadding = 0.dp,
+                        containerColor = Color.Transparent,
+                        contentColor = PrimaryViolet
+                    ) {
+                        books.forEach { book ->
+                            Tab(
+                                selected = book.id == selectedBookId,
+                                onClick = { selectedBookId = book.id },
+                                text = { Text(book.title, fontWeight = FontWeight.SemiBold) }
+                            )
+                        }
                     }
                 }
             }
@@ -121,16 +184,39 @@ fun StudyScreen(
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Text(
-                                    text = currentBook.title,
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.Bold
-                                )
-                                Text(
-                                    text = "$completedCount/$totalCount ($progressPercent%)",
-                                    fontWeight = FontWeight.Bold,
-                                    color = CyberCyan
-                                )
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = currentBook.title,
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    if (currentBook.author.isNotEmpty()) {
+                                        Text(
+                                            text = currentBook.author,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(
+                                        text = "$completedCount/$totalCount ($progressPercent%)",
+                                        fontWeight = FontWeight.Bold,
+                                        color = CyberCyan
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    IconButton(
+                                        onClick = { bookToDelete = currentBook },
+                                        modifier = Modifier.size(32.dp)
+                                    ) {
+                                        Icon(
+                                            Icons.Default.Delete,
+                                            contentDescription = "Delete Book",
+                                            tint = RoseError,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    }
+                                }
                             }
                             Spacer(modifier = Modifier.height(8.dp))
                             LinearProgressIndicator(
@@ -142,39 +228,65 @@ fun StudyScreen(
                         }
                     }
                 }
-            }
 
-            // Chapters List Section
-            item {
-                Text(
-                    text = I18n.t("chapters"),
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-
-            if (currentChapters.isEmpty()) {
+                // Chapters List Section
                 item {
-                    EmptyStateView(
-                        icon = Icons.AutoMirrored.Filled.MenuBook,
-                        message = "এই বিষয়ের জন্য কোনো অধ্যায় যোগ করা হয়নি।",
-                        actionButton = {
-                            Button(onClick = { showAddChapterDialog = true }) {
-                                Text(I18n.t("add_chapter"))
-                            }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = I18n.t("chapters"),
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                        TextButton(onClick = { showAddChapterDialog = true }) {
+                            Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(I18n.t("add_chapter"))
                         }
-                    )
+                    }
                 }
-            } else {
-                items(currentChapters) { chapter ->
-                    ChapterItemCard(
-                        chapter = chapter,
-                        onToggle = { viewModel.toggleChapterCompletion(chapter) },
-                        onDelete = { chapterToDelete = chapter }
-                    )
+
+                if (currentChapters.isEmpty()) {
+                    item {
+                        EmptyStateView(
+                            icon = Icons.AutoMirrored.Filled.MenuBook,
+                            message = if (I18n.currentLanguage == "bn") "এই বিষয়ের জন্য কোনো অধ্যায় যোগ করা হয়নি।" else "No chapters added for this subject yet.",
+                            actionButton = {
+                                Button(onClick = { showAddChapterDialog = true }) {
+                                    Text(I18n.t("add_chapter"))
+                                }
+                            }
+                        )
+                    }
+                } else {
+                    items(currentChapters) { chapter ->
+                        ChapterItemCard(
+                            chapter = chapter,
+                            onToggle = { viewModel.toggleChapterCompletion(chapter) },
+                            onDelete = { chapterToDelete = chapter }
+                        )
+                    }
                 }
             }
         }
+    }
+
+    if (bookToDelete != null) {
+        ConfirmDeleteDialog(
+            title = I18n.t("delete"),
+            message = if (I18n.currentLanguage == "bn")
+                "'${bookToDelete?.title}' বইটি ও এর অধ্যায়গুলো মুছে ফেলতে চান?"
+            else
+                "Are you sure you want to delete '${bookToDelete?.title}' and all its chapters?",
+            onConfirm = {
+                viewModel.deleteBook(bookToDelete!!.id)
+                bookToDelete = null
+            },
+            onDismiss = { bookToDelete = null }
+        )
     }
 
     if (chapterToDelete != null) {
@@ -260,10 +372,18 @@ fun ChapterItemCard(
             }
 
             if (chapter.googleDocsUrl.isNotEmpty() || chapter.youtubeUrl.isNotEmpty()) {
+                val context = LocalContext.current
                 Spacer(modifier = Modifier.height(8.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     if (chapter.googleDocsUrl.isNotEmpty()) {
                         Surface(
+                            onClick = {
+                                try {
+                                    val uri = if (chapter.googleDocsUrl.startsWith("http")) Uri.parse(chapter.googleDocsUrl)
+                                    else Uri.parse("https://${chapter.googleDocsUrl}")
+                                    context.startActivity(Intent(Intent.ACTION_VIEW, uri))
+                                } catch (_: Exception) {}
+                            },
                             color = PrimaryViolet.copy(alpha = 0.15f),
                             shape = RoundedCornerShape(6.dp)
                         ) {
@@ -277,6 +397,13 @@ fun ChapterItemCard(
                     }
                     if (chapter.youtubeUrl.isNotEmpty()) {
                         Surface(
+                            onClick = {
+                                try {
+                                    val uri = if (chapter.youtubeUrl.startsWith("http")) Uri.parse(chapter.youtubeUrl)
+                                    else Uri.parse("https://${chapter.youtubeUrl}")
+                                    context.startActivity(Intent(Intent.ACTION_VIEW, uri))
+                                } catch (_: Exception) {}
+                            },
                             color = RoseError.copy(alpha = 0.15f),
                             shape = RoundedCornerShape(6.dp)
                         ) {

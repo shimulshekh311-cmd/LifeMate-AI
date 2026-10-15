@@ -92,13 +92,6 @@ class MainActivity : FragmentActivity() {
                             isReligionEnabled = userPrefs?.isReligionModuleEnabled ?: true,
                             onTabSelected = { viewModel.setTab(it) }
                         )
-                    },
-                    floatingActionButton = {
-                        if (!isAssistantOpen && currentTab != ScreenTab.SETTINGS) {
-                            FloatingAssistantAvatarButton(
-                                onClick = { viewModel.toggleAssistant(true) }
-                            )
-                        }
                     }
                 ) { innerPadding ->
                     Box(
