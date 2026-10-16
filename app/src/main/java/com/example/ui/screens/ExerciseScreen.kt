@@ -21,9 +21,7 @@ import androidx.compose.ui.unit.sp
 import com.example.core.i18n.I18n
 import com.example.data.local.entities.ExerciseItemEntity
 import com.example.data.local.entities.ExercisePlanEntity
-import com.example.ui.components.ConfirmDeleteDialog
-import com.example.ui.components.EmptyStateView
-import com.example.ui.components.GlassCard
+import com.example.ui.components.*
 import com.example.ui.theme.*
 import com.example.ui.viewmodel.MainViewModel
 import java.text.SimpleDateFormat
@@ -179,8 +177,8 @@ fun ExerciseScreen(
     if (showCreateDialog) {
         CreateExercisePlanDialog(
             onDismiss = { showCreateDialog = false },
-            onSave = { title, desc, restSec, rounds, items ->
-                viewModel.createExercisePlan(title, desc, restSec, rounds, items)
+            onSave = { title, desc, restSec, rounds, startDate, endDate, startTime, notifEnabled, items ->
+                viewModel.createExercisePlan(title, desc, restSec, rounds, startDate, endDate, startTime, notifEnabled, items)
                 showCreateDialog = false
             }
         )
@@ -447,12 +445,19 @@ fun GuidedSessionActiveCard(
 @Composable
 fun CreateExercisePlanDialog(
     onDismiss: () -> Unit,
-    onSave: (String, String, Int, Int, List<ExerciseItemEntity>) -> Unit
+    onSave: (String, String, Int, Int, String, String, String, Boolean, List<ExerciseItemEntity>) -> Unit
 ) {
     var title by remember { mutableStateOf("") }
     var desc by remember { mutableStateOf("") }
     var restSecStr by remember { mutableStateOf("15") }
     var roundsStr by remember { mutableStateOf("2") }
+
+    val todayStr = remember { SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date()) }
+    var startDate by remember { mutableStateOf(todayStr) }
+    var hasEndDate by remember { mutableStateOf(false) }
+    var endDate by remember { mutableStateOf("") }
+    var startTime by remember { mutableStateOf("07:00 AM") }
+    var notificationsEnabled by remember { mutableStateOf(true) }
 
     var itemName by remember { mutableStateOf("") }
     var itemDurationStr by remember { mutableStateOf("30") }
@@ -480,6 +485,68 @@ fun CreateExercisePlanDialog(
                         } else null,
                         modifier = Modifier.fillMaxWidth()
                     )
+                }
+                item {
+                    DatePickerField(
+                        label = if (I18n.currentLanguage == "bn") "শুরুর তারিখ (Start Date) *" else "Start Date *",
+                        selectedDate = startDate,
+                        onDateSelected = { startDate = it }
+                    )
+                }
+                item {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Checkbox(
+                            checked = hasEndDate,
+                            onCheckedChange = {
+                                hasEndDate = it
+                                if (it && endDate.isBlank()) endDate = startDate
+                            }
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = if (I18n.currentLanguage == "bn") "নির্দিষ্ট মেয়াদ / শেষের তারিখ রয়েছে" else "Has an end date",
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                    if (hasEndDate) {
+                        Spacer(modifier = Modifier.height(4.dp))
+                        DatePickerField(
+                            label = if (I18n.currentLanguage == "bn") "শেষের তারিখ (End Date)" else "End Date",
+                            selectedDate = endDate,
+                            onDateSelected = { endDate = it },
+                            minDate = startDate
+                        )
+                    }
+                }
+                item {
+                    TimePickerField(
+                        label = if (I18n.currentLanguage == "bn") "ব্যায়াম শুরুর সময় *" else "Start Time *",
+                        selectedTime = startTime,
+                        onTimeSelected = { startTime = it }
+                    )
+                }
+                item {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.Notifications, contentDescription = null, tint = EmeraldSuccess, modifier = Modifier.size(20.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = if (I18n.currentLanguage == "bn") "ব্যায়ামের রিমাইন্ডার অ্যালার্ম" else "Workout Reminder Alarm",
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                        }
+                        Switch(
+                            checked = notificationsEnabled,
+                            onCheckedChange = { notificationsEnabled = it }
+                        )
+                    }
                 }
                 item {
                     OutlinedTextField(
@@ -636,7 +703,17 @@ fun CreateExercisePlanDialog(
                                 ExerciseItemEntity(planId = 0, name = "স্কোয়াট", reps = 15)
                             )
                         } else itemsList.toList()
-                        onSave(title.trim(), desc.trim(), rest, rounds, finalItems)
+                        onSave(
+                            title.trim(),
+                            desc.trim(),
+                            rest,
+                            rounds,
+                            startDate.trim(),
+                            if (hasEndDate) endDate.trim() else "",
+                            startTime.trim(),
+                            notificationsEnabled,
+                            finalItems
+                        )
                     }
                 }
             ) {

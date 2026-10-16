@@ -1,5 +1,7 @@
 package com.example.ui.screens
 
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -13,15 +15,15 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.core.i18n.I18n
+import com.example.core.util.DocumentOpener
 import com.example.data.local.entities.StudyBookEntity
+import com.example.data.local.entities.StudyCategoryEntity
 import com.example.data.local.entities.StudyChapterEntity
-import android.content.Intent
-import android.net.Uri
-import androidx.compose.ui.platform.LocalContext
 import com.example.ui.components.ConfirmDeleteDialog
 import com.example.ui.components.EmptyStateView
 import com.example.ui.theme.*
@@ -36,23 +38,32 @@ fun StudyScreen(
     val books by viewModel.studyBooks.collectAsState()
     val allChapters by viewModel.studyChapters.collectAsState()
 
+    // 0: Job Preparation, 1: Academic
+    var selectedCategoryIndex by remember { mutableIntStateOf(0) }
+    val currentCategoryType = if (selectedCategoryIndex == 0) "JOB_PREPARATION" else "ACADEMIC"
+
+    val currentSectionBooks = remember(books, currentCategoryType) {
+        books.filter { it.categoryType == currentCategoryType }
+    }
+
     var selectedBookId by remember { mutableStateOf<Long?>(null) }
     var showAddBookDialog by remember { mutableStateOf(false) }
     var showAddChapterDialog by remember { mutableStateOf(false) }
     var chapterToDelete by remember { mutableStateOf<StudyChapterEntity?>(null) }
     var bookToDelete by remember { mutableStateOf<StudyBookEntity?>(null) }
 
-    LaunchedEffect(books) {
-        if (books.isNotEmpty()) {
-            if (selectedBookId == null || books.none { it.id == selectedBookId }) {
-                selectedBookId = books.first().id
+    // Safe selection: update selectedBookId when section books change or tab switches
+    LaunchedEffect(currentSectionBooks) {
+        if (currentSectionBooks.isNotEmpty()) {
+            if (selectedBookId == null || currentSectionBooks.none { it.id == selectedBookId }) {
+                selectedBookId = currentSectionBooks.first().id
             }
         } else {
             selectedBookId = null
         }
     }
 
-    val currentBook = books.find { it.id == selectedBookId }
+    val currentBook = currentSectionBooks.find { it.id == selectedBookId }
     val currentChapters = allChapters.filter { it.bookId == selectedBookId }
     val completedCount = currentChapters.count { it.isCompleted }
     val totalCount = currentChapters.size
@@ -63,7 +74,7 @@ fun StudyScreen(
         floatingActionButton = {
             FloatingActionButton(
                 onClick = {
-                    if (books.isEmpty()) showAddBookDialog = true
+                    if (currentSectionBooks.isEmpty()) showAddBookDialog = true
                     else showAddChapterDialog = true
                 },
                 containerColor = PrimaryViolet,
@@ -71,165 +82,59 @@ fun StudyScreen(
             ) {
                 Icon(
                     Icons.Default.Add,
-                    contentDescription = if (books.isEmpty()) I18n.t("add_book") else I18n.t("add_chapter")
+                    contentDescription = if (currentSectionBooks.isEmpty()) I18n.t("add_book") else I18n.t("add_chapter")
                 )
             }
         }
     ) { padding ->
-        LazyColumn(
+        Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // Book Selector Dropdown / Row
-            item {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = I18n.t("books"),
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
-                    )
-                    TextButton(onClick = { showAddBookDialog = true }) {
-                        Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(I18n.t("add_book"))
+            // Top Section Tabs: Job Preparation vs Academic Books
+            TabRow(
+                selectedTabIndex = selectedCategoryIndex,
+                containerColor = MaterialTheme.colorScheme.surface,
+                contentColor = PrimaryViolet
+            ) {
+                Tab(
+                    selected = selectedCategoryIndex == 0,
+                    onClick = { selectedCategoryIndex = 0 },
+                    text = {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.WorkOutline, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = if (I18n.currentLanguage == "bn") "চাকরির প্রস্তুতি" else "Job Preparation",
+                                fontWeight = if (selectedCategoryIndex == 0) FontWeight.Bold else FontWeight.Normal
+                            )
+                        }
                     }
-                }
+                )
+                Tab(
+                    selected = selectedCategoryIndex == 1,
+                    onClick = { selectedCategoryIndex = 1 },
+                    text = {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.School, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = if (I18n.currentLanguage == "bn") "একাডেমিক পড়াশোনা" else "Academic Books",
+                                fontWeight = if (selectedCategoryIndex == 1) FontWeight.Bold else FontWeight.Normal
+                            )
+                        }
+                    }
+                )
             }
 
-            if (books.isEmpty()) {
-                item {
-                    Card(
-                        shape = RoundedCornerShape(16.dp),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(24.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Filled.MenuBook,
-                                contentDescription = null,
-                                tint = PrimaryViolet,
-                                modifier = Modifier.size(48.dp)
-                            )
-                            Spacer(modifier = Modifier.height(12.dp))
-                            Text(
-                                text = if (I18n.currentLanguage == "bn") "কোনো বই বা বিষয় নেই" else "No Books Added Yet",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold
-                            )
-                            Spacer(modifier = Modifier.height(6.dp))
-                            Text(
-                                text = if (I18n.currentLanguage == "bn")
-                                    "পড়াশোনা ও পরীক্ষার প্রস্তুতি গোছাতে আপনার প্রথম বই বা বিষয় যোগ করুন।"
-                                else
-                                    "Add your first subject or book to organize topics and track your progress.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                            )
-                            Spacer(modifier = Modifier.height(14.dp))
-                            Button(
-                                onClick = { showAddBookDialog = true },
-                                colors = ButtonDefaults.buttonColors(containerColor = PrimaryViolet)
-                            ) {
-                                Icon(Icons.Default.Add, contentDescription = null)
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text(I18n.t("add_book"))
-                            }
-                        }
-                    }
-                }
-            } else {
-                item {
-                    val safeIndex = books.indexOfFirst { it.id == selectedBookId }.let { if (it >= 0) it else 0 }
-                    ScrollableTabRow(
-                        selectedTabIndex = safeIndex,
-                        edgePadding = 0.dp,
-                        containerColor = Color.Transparent,
-                        contentColor = PrimaryViolet
-                    ) {
-                        books.forEach { book ->
-                            Tab(
-                                selected = book.id == selectedBookId,
-                                onClick = { selectedBookId = book.id },
-                                text = { Text(book.title, fontWeight = FontWeight.SemiBold) }
-                            )
-                        }
-                    }
-                }
-            }
-
-            // Progress Banner for Selected Book
-            if (currentBook != null) {
-                item {
-                    Card(
-                        shape = RoundedCornerShape(16.dp),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Column(modifier = Modifier.padding(16.dp)) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(
-                                        text = currentBook.title,
-                                        style = MaterialTheme.typography.titleMedium,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                    if (currentBook.author.isNotEmpty()) {
-                                        Text(
-                                            text = currentBook.author,
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
-                                    }
-                                }
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Text(
-                                        text = "$completedCount/$totalCount ($progressPercent%)",
-                                        fontWeight = FontWeight.Bold,
-                                        color = CyberCyan
-                                    )
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    IconButton(
-                                        onClick = { bookToDelete = currentBook },
-                                        modifier = Modifier.size(32.dp)
-                                    ) {
-                                        Icon(
-                                            Icons.Default.Delete,
-                                            contentDescription = "Delete Book",
-                                            tint = RoseError,
-                                            modifier = Modifier.size(18.dp)
-                                        )
-                                    }
-                                }
-                            }
-                            Spacer(modifier = Modifier.height(8.dp))
-                            LinearProgressIndicator(
-                                progress = { if (totalCount > 0) completedCount.toFloat() / totalCount else 0f },
-                                modifier = Modifier.fillMaxWidth(),
-                                color = CyberCyan,
-                                trackColor = MaterialTheme.colorScheme.surface
-                            )
-                        }
-                    }
-                }
-
-                // Chapters List Section
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                // Book Selector Header
                 item {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -237,37 +142,218 @@ fun StudyScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = I18n.t("chapters"),
+                            text = if (selectedCategoryIndex == 0) {
+                                if (I18n.currentLanguage == "bn") "চাকরির বই ও বিষয়সমূহ" else "Job Prep Subjects"
+                            } else {
+                                if (I18n.currentLanguage == "bn") "একাডেমিক পাঠ্যবইসমূহ" else "Academic Subjects"
+                            },
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold
                         )
-                        TextButton(onClick = { showAddChapterDialog = true }) {
+                        TextButton(onClick = { showAddBookDialog = true }) {
                             Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
                             Spacer(modifier = Modifier.width(4.dp))
-                            Text(I18n.t("add_chapter"))
+                            Text(I18n.t("add_book"))
                         }
                     }
                 }
 
-                if (currentChapters.isEmpty()) {
+                // Independent Empty States per Category
+                if (currentSectionBooks.isEmpty()) {
                     item {
-                        EmptyStateView(
-                            icon = Icons.AutoMirrored.Filled.MenuBook,
-                            message = if (I18n.currentLanguage == "bn") "এই বিষয়ের জন্য কোনো অধ্যায় যোগ করা হয়নি।" else "No chapters added for this subject yet.",
-                            actionButton = {
-                                Button(onClick = { showAddChapterDialog = true }) {
-                                    Text(I18n.t("add_chapter"))
+                        Card(
+                            shape = RoundedCornerShape(16.dp),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(24.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Icon(
+                                    imageVector = if (selectedCategoryIndex == 0) Icons.Default.WorkOutline else Icons.Default.School,
+                                    contentDescription = null,
+                                    tint = PrimaryViolet,
+                                    modifier = Modifier.size(48.dp)
+                                )
+                                Spacer(modifier = Modifier.height(12.dp))
+                                Text(
+                                    text = if (selectedCategoryIndex == 0) {
+                                        if (I18n.currentLanguage == "bn") "চাকরির প্রস্তুতির কোনো বই যুক্ত নেই" else "No Job Preparation Books Yet"
+                                    } else {
+                                        if (I18n.currentLanguage == "bn") "একাডেমিক পড়াশোনার কোনো বই যুক্ত নেই" else "No Academic Books Yet"
+                                    },
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Spacer(modifier = Modifier.height(6.dp))
+                                Text(
+                                    text = if (selectedCategoryIndex == 0) {
+                                        if (I18n.currentLanguage == "bn")
+                                            "বিসিএস, ব্যাংক বা অন্যান্য সরকারি-বেসরকারি চাকরির পরীক্ষার বই ও অধ্যায় যুক্ত করুন।"
+                                        else
+                                            "Add BCS, Bank, or job exam preparation guides and track topics."
+                                    } else {
+                                        if (I18n.currentLanguage == "bn")
+                                            "স্কুল, কলেজ বা বিশ্ববিদ্যালয় কোর্সের পাঠ্যবই ও নোট যুক্ত করুন।"
+                                        else
+                                            "Add course textbooks, chapters, and resources to study systematically."
+                                    },
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                )
+                                Spacer(modifier = Modifier.height(14.dp))
+                                Button(
+                                    onClick = { showAddBookDialog = true },
+                                    colors = ButtonDefaults.buttonColors(containerColor = PrimaryViolet)
+                                ) {
+                                    Icon(Icons.Default.Add, contentDescription = null)
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        if (selectedCategoryIndex == 0)
+                                            (if (I18n.currentLanguage == "bn") "+ চাকরির বই যোগ করুন" else "+ Add Job Book")
+                                        else
+                                            (if (I18n.currentLanguage == "bn") "+ একাডেমিক বই যোগ করুন" else "+ Add Academic Book")
+                                    )
                                 }
                             }
-                        )
+                        }
                     }
                 } else {
-                    items(currentChapters) { chapter ->
-                        ChapterItemCard(
-                            chapter = chapter,
-                            onToggle = { viewModel.toggleChapterCompletion(chapter) },
-                            onDelete = { chapterToDelete = chapter }
-                        )
+                    item {
+                        val safeIndex = currentSectionBooks.indexOfFirst { it.id == selectedBookId }.let { if (it >= 0) it else 0 }
+                        ScrollableTabRow(
+                            selectedTabIndex = safeIndex,
+                            edgePadding = 0.dp,
+                            containerColor = Color.Transparent,
+                            contentColor = PrimaryViolet
+                        ) {
+                            currentSectionBooks.forEach { book ->
+                                Tab(
+                                    selected = book.id == selectedBookId,
+                                    onClick = { selectedBookId = book.id },
+                                    text = { Text(book.title, fontWeight = FontWeight.SemiBold) }
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // Progress Banner for Selected Book
+                if (currentBook != null) {
+                    item {
+                        Card(
+                            shape = RoundedCornerShape(16.dp),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(modifier = Modifier.padding(16.dp)) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = currentBook.title,
+                                            style = MaterialTheme.typography.titleMedium,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                        if (currentBook.author.isNotEmpty()) {
+                                            Text(
+                                                text = currentBook.author,
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+                                    }
+                                    Surface(
+                                        color = CyberCyan.copy(alpha = 0.15f),
+                                        shape = RoundedCornerShape(8.dp)
+                                    ) {
+                                        Text(
+                                            text = "$progressPercent% সম্পন্ন",
+                                            fontSize = 12.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = CyberCyan,
+                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                        )
+                                    }
+                                    IconButton(onClick = { bookToDelete = currentBook }) {
+                                        Icon(Icons.Default.Delete, contentDescription = "Delete Book", tint = RoseError)
+                                    }
+                                }
+                                Spacer(modifier = Modifier.height(10.dp))
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Text(
+                                        text = "$totalCount টির মধ্যে $completedCount টি অধ্যায় সম্পন্ন",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    Text(
+                                        text = "$completedCount/$totalCount",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        fontWeight = FontWeight.Bold,
+                                        color = CyberCyan
+                                    )
+                                }
+                                Spacer(modifier = Modifier.height(8.dp))
+                                LinearProgressIndicator(
+                                    progress = { if (totalCount > 0) completedCount.toFloat() / totalCount else 0f },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    color = CyberCyan,
+                                    trackColor = MaterialTheme.colorScheme.surface
+                                )
+                            }
+                        }
+                    }
+
+                    // Chapters List Section
+                    item {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = I18n.t("chapters"),
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold
+                            )
+                            TextButton(onClick = { showAddChapterDialog = true }) {
+                                Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(I18n.t("add_chapter"))
+                            }
+                        }
+                    }
+
+                    if (currentChapters.isEmpty()) {
+                        item {
+                            EmptyStateView(
+                                icon = Icons.AutoMirrored.Filled.MenuBook,
+                                message = if (I18n.currentLanguage == "bn") "এই বিষয়ের জন্য কোনো অধ্যায় যোগ করা হয়নি।" else "No chapters added for this subject yet.",
+                                actionButton = {
+                                    Button(onClick = { showAddChapterDialog = true }) {
+                                        Text(I18n.t("add_chapter"))
+                                    }
+                                }
+                            )
+                        }
+                    } else {
+                        items(currentChapters, key = { it.id }) { chapter ->
+                            ChapterItemCard(
+                                chapter = chapter,
+                                onToggle = { viewModel.toggleChapterCompletion(chapter) },
+                                onDelete = { chapterToDelete = chapter }
+                            )
+                        }
                     }
                 }
             }
@@ -304,9 +390,10 @@ fun StudyScreen(
     if (showAddBookDialog) {
         AddBookDialog(
             categories = categories,
+            initialCategoryType = currentCategoryType,
             onDismiss = { showAddBookDialog = false },
-            onSave = { catId, title, author ->
-                viewModel.addBook(catId, title, author)
+            onSave = { catId, title, author, catType ->
+                viewModel.addBook(catId, title, author, catType)
                 showAddBookDialog = false
             }
         )
@@ -330,6 +417,8 @@ fun ChapterItemCard(
     onToggle: () -> Unit,
     onDelete: () -> Unit
 ) {
+    val context = LocalContext.current
+
     Card(
         shape = RoundedCornerShape(14.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -358,7 +447,7 @@ fun ChapterItemCard(
                     }
                 }
                 IconButton(onClick = onDelete) {
-                    Icon(Icons.Default.Delete, contentDescription = "Delete", tint = RoseError)
+                    Icon(Icons.Default.Delete, contentDescription = "Delete", tint = RoseError, modifier = Modifier.size(18.dp))
                 }
             }
 
@@ -366,35 +455,66 @@ fun ChapterItemCard(
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     text = "📝 ${chapter.notes}",
-                    style = MaterialTheme.typography.bodySmall,
+                    fontSize = 11.sp,
                     color = CyberCyan
                 )
             }
 
-            if (chapter.googleDocsUrl.isNotEmpty() || chapter.youtubeUrl.isNotEmpty()) {
-                val context = LocalContext.current
+            // Google Docs, YouTube, or Local Docs Links
+            if (chapter.googleDocsUrl.isNotEmpty() || chapter.youtubeUrl.isNotEmpty() || chapter.pdfFilePath.isNotEmpty()) {
                 Spacer(modifier = Modifier.height(8.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    // Google Docs Link using DocumentOpener (official app with browser fallback)
                     if (chapter.googleDocsUrl.isNotEmpty()) {
                         Surface(
                             onClick = {
-                                try {
-                                    val uri = if (chapter.googleDocsUrl.startsWith("http")) Uri.parse(chapter.googleDocsUrl)
-                                    else Uri.parse("https://${chapter.googleDocsUrl}")
-                                    context.startActivity(Intent(Intent.ACTION_VIEW, uri))
-                                } catch (_: Exception) {}
+                                DocumentOpener.openGoogleDocsLink(context, chapter.googleDocsUrl)
                             },
                             color = PrimaryViolet.copy(alpha = 0.15f),
                             shape = RoundedCornerShape(6.dp)
                         ) {
-                            Text(
-                                text = "📄 Google Docs",
-                                fontSize = 11.sp,
-                                color = PrimaryViolet,
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                            )
+                            Row(
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(Icons.Default.Description, contentDescription = null, tint = PrimaryViolet, modifier = Modifier.size(14.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = "Google Docs",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = PrimaryViolet
+                                )
+                            }
                         }
                     }
+
+                    // Local Document / PDF
+                    if (chapter.pdfFilePath.isNotEmpty()) {
+                        Surface(
+                            onClick = {
+                                DocumentOpener.openLocalDocument(context, Uri.parse(chapter.pdfFilePath), chapter.pdfFilePath)
+                            },
+                            color = AmberWarning.copy(alpha = 0.15f),
+                            shape = RoundedCornerShape(6.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(Icons.Default.AttachFile, contentDescription = null, tint = AmberWarning, modifier = Modifier.size(14.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = "ডকুমেন্ট / PDF",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = AmberWarning
+                                )
+                            }
+                        }
+                    }
+
+                    // YouTube Video Link
                     if (chapter.youtubeUrl.isNotEmpty()) {
                         Surface(
                             onClick = {
@@ -407,12 +527,19 @@ fun ChapterItemCard(
                             color = RoseError.copy(alpha = 0.15f),
                             shape = RoundedCornerShape(6.dp)
                         ) {
-                            Text(
-                                text = "▶️ YouTube",
-                                fontSize = 11.sp,
-                                color = RoseError,
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                            )
+                            Row(
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(Icons.Default.PlayCircle, contentDescription = null, tint = RoseError, modifier = Modifier.size(14.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = "YouTube",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = RoseError
+                                )
+                            }
                         }
                     }
                 }
@@ -423,29 +550,65 @@ fun ChapterItemCard(
 
 @Composable
 fun AddBookDialog(
-    categories: List<com.example.data.local.entities.StudyCategoryEntity>,
+    categories: List<StudyCategoryEntity>,
+    initialCategoryType: String = "JOB_PREPARATION",
     onDismiss: () -> Unit,
-    onSave: (Long, String, String) -> Unit
+    onSave: (Long, String, String, String) -> Unit
 ) {
     var title by remember { mutableStateOf("") }
     var author by remember { mutableStateOf("") }
+    var categoryType by remember { mutableStateOf(initialCategoryType) }
     var selectedCatId by remember { mutableStateOf(categories.firstOrNull()?.id ?: 1L) }
+    var titleError by remember { mutableStateOf(false) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(I18n.t("add_book"), fontWeight = FontWeight.Bold) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                // Category Type Selection
+                Text(
+                    text = if (I18n.currentLanguage == "bn") "বইয়ের বিভাগ নির্বাচন করুন:" else "Select Book Section:",
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 13.sp
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    FilterChip(
+                        selected = categoryType == "JOB_PREPARATION",
+                        onClick = { categoryType = "JOB_PREPARATION" },
+                        label = { Text(if (I18n.currentLanguage == "bn") "চাকরির প্রস্তুতি" else "Job Prep", fontSize = 11.sp) },
+                        leadingIcon = { Icon(Icons.Default.WorkOutline, contentDescription = null, modifier = Modifier.size(14.dp)) },
+                        modifier = Modifier.weight(1f)
+                    )
+                    FilterChip(
+                        selected = categoryType == "ACADEMIC",
+                        onClick = { categoryType = "ACADEMIC" },
+                        label = { Text(if (I18n.currentLanguage == "bn") "একাডেমিক" else "Academic", fontSize = 11.sp) },
+                        leadingIcon = { Icon(Icons.Default.School, contentDescription = null, modifier = Modifier.size(14.dp)) },
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+
                 OutlinedTextField(
                     value = title,
-                    onValueChange = { title = it },
-                    label = { Text(I18n.t("book_title")) },
+                    onValueChange = {
+                        title = it
+                        if (it.isNotBlank()) titleError = false
+                    },
+                    label = { Text(I18n.t("book_title") + " *") },
+                    isError = titleError,
+                    supportingText = if (titleError) {
+                        { Text(if (I18n.currentLanguage == "bn") "বইয়ের নাম আবশ্যক" else "Book title is required", color = RoseError) }
+                    } else null,
                     modifier = Modifier.fillMaxWidth()
                 )
                 OutlinedTextField(
                     value = author,
                     onValueChange = { author = it },
-                    label = { Text("লেখক / নির্দেশক") },
+                    label = { Text(if (I18n.currentLanguage == "bn") "লেখক / নির্দেশক" else "Author / Guide") },
                     modifier = Modifier.fillMaxWidth()
                 )
             }
@@ -453,7 +616,11 @@ fun AddBookDialog(
         confirmButton = {
             Button(
                 onClick = {
-                    if (title.isNotBlank()) onSave(selectedCatId, title, author)
+                    if (title.isBlank()) {
+                        titleError = true
+                    } else {
+                        onSave(selectedCatId, title.trim(), author.trim(), categoryType)
+                    }
                 }
             ) {
                 Text(I18n.t("save"))
@@ -475,49 +642,74 @@ fun AddChapterDialog(
     var desc by remember { mutableStateOf("") }
     var gdocs by remember { mutableStateOf("") }
     var yt by remember { mutableStateOf("") }
+    var pdf by remember { mutableStateOf("") }
     var notes by remember { mutableStateOf("") }
+    var titleError by remember { mutableStateOf(false) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(I18n.t("add_chapter"), fontWeight = FontWeight.Bold) },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                OutlinedTextField(
-                    value = title,
-                    onValueChange = { title = it },
-                    label = { Text(I18n.t("chapter_name")) },
-                    modifier = Modifier.fillMaxWidth()
-                )
-                OutlinedTextField(
-                    value = desc,
-                    onValueChange = { desc = it },
-                    label = { Text("বিবরণ") },
-                    modifier = Modifier.fillMaxWidth()
-                )
-                OutlinedTextField(
-                    value = gdocs,
-                    onValueChange = { gdocs = it },
-                    label = { Text(I18n.t("gdocs_link")) },
-                    modifier = Modifier.fillMaxWidth()
-                )
-                OutlinedTextField(
-                    value = yt,
-                    onValueChange = { yt = it },
-                    label = { Text(I18n.t("youtube_link")) },
-                    modifier = Modifier.fillMaxWidth()
-                )
-                OutlinedTextField(
-                    value = notes,
-                    onValueChange = { notes = it },
-                    label = { Text(I18n.t("study_notes")) },
-                    modifier = Modifier.fillMaxWidth()
-                )
+            LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                item {
+                    OutlinedTextField(
+                        value = title,
+                        onValueChange = {
+                            title = it
+                            if (it.isNotBlank()) titleError = false
+                        },
+                        label = { Text(I18n.t("chapter_name") + " *") },
+                        isError = titleError,
+                        supportingText = if (titleError) {
+                            { Text(if (I18n.currentLanguage == "bn") "অধ্যায়ের নাম আবশ্যক" else "Chapter name is required", color = RoseError) }
+                        } else null,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+                item {
+                    OutlinedTextField(
+                        value = desc,
+                        onValueChange = { desc = it },
+                        label = { Text(I18n.t("item_desc")) },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+                item {
+                    OutlinedTextField(
+                        value = gdocs,
+                        onValueChange = { gdocs = it },
+                        label = { Text(I18n.t("gdocs_link")) },
+                        placeholder = { Text("https://docs.google.com/...") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+                item {
+                    OutlinedTextField(
+                        value = yt,
+                        onValueChange = { yt = it },
+                        label = { Text(I18n.t("youtube_link")) },
+                        placeholder = { Text("https://youtube.com/...") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+                item {
+                    OutlinedTextField(
+                        value = notes,
+                        onValueChange = { notes = it },
+                        label = { Text(I18n.t("study_notes")) },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
             }
         },
         confirmButton = {
             Button(
                 onClick = {
-                    if (title.isNotBlank()) onSave(bookId, title, desc, gdocs, yt, "", notes)
+                    if (title.isBlank()) {
+                        titleError = true
+                    } else {
+                        onSave(bookId, title.trim(), desc.trim(), gdocs.trim(), yt.trim(), pdf.trim(), notes.trim())
+                    }
                 }
             ) {
                 Text(I18n.t("save"))

@@ -23,5 +23,6 @@ data class UserPreferencesEntity(
     val themeMode: String = "system", // "system", "dark", "light"
     val isReligionModuleEnabled: Boolean = true,
     val notificationsEnabled: Boolean = true,
-    val soundVibrationEnabled: Boolean = true
+    val soundVibrationEnabled: Boolean = true,
+    val lastBackupDate: String = ""
 )

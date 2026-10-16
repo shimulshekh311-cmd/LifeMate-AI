@@ -17,7 +17,8 @@ data class StudyBookEntity(
     val title: String,
     val author: String = "",
     val totalChapters: Int = 0,
-    val createdAtTimestamp: Long = System.currentTimeMillis()
+    val createdAtTimestamp: Long = System.currentTimeMillis(),
+    val categoryType: String = "ACADEMIC" // "JOB_PREPARATION" or "ACADEMIC"
 )
 
 @Entity(tableName = "study_chapters")

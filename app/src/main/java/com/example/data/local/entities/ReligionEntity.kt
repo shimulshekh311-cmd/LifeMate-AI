@@ -10,5 +10,6 @@ data class ReligiousActivityEntity(
     val scheduledTime: String = "",
     val isCompletedToday: Boolean = false,
     val notes: String = "",
-    val lastCompletedDate: String = ""
+    val lastCompletedDate: String = "",
+    val notificationsEnabled: Boolean = true
 )

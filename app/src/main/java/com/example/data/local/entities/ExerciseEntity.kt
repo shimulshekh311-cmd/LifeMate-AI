@@ -12,7 +12,11 @@ data class ExercisePlanEntity(
     val rounds: Int = 1,
     val scheduledDays: String = "",
     val isArchived: Boolean = false,
-    val createdAtTimestamp: Long = System.currentTimeMillis()
+    val createdAtTimestamp: Long = System.currentTimeMillis(),
+    val startDate: String = "",
+    val endDate: String = "",
+    val startTime: String = "07:00 AM",
+    val notificationsEnabled: Boolean = true
 )
 
 @Entity(tableName = "exercise_items")

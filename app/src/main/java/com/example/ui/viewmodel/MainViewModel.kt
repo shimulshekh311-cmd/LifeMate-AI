@@ -91,6 +91,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val studyBooks: StateFlow<List<StudyBookEntity>> = repository.studyBooks
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    val jobPrepBooks: StateFlow<List<StudyBookEntity>> = repository.jobPrepBooks
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val academicBooks: StateFlow<List<StudyBookEntity>> = repository.academicBooks
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
     val studyChapters: StateFlow<List<StudyChapterEntity>> = repository.allStudyChapters
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
@@ -288,33 +294,65 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     // Routine & Tasks
-    fun addTaskHabit(title: String, desc: String, type: String, time: String, date: String, recurrence: String) {
+    fun addTaskHabit(
+        title: String,
+        desc: String,
+        type: String,
+        time: String,
+        date: String,
+        recurrence: String = "NONE",
+        durationMinutes: Int = 0,
+        selectedDays: String = "",
+        excludedDays: String = "",
+        excludedDates: String = "",
+        notificationsEnabled: Boolean = true,
+        isAlarm: Boolean = false,
+        importance: String = "LOW",
+        targetCount: Int = 1,
+        endDate: String = "",
+        isOngoing: Boolean = true
+    ) {
         viewModelScope.launch {
-            val id = repository.insertTaskHabit(
-                TaskHabitEntity(
-                    title = title,
-                    description = desc,
-                    type = type,
+            val entity = TaskHabitEntity(
+                title = title,
+                description = desc,
+                type = type,
+                scheduledDate = date,
+                scheduledTime = time,
+                recurrence = recurrence,
+                durationMinutes = durationMinutes,
+                selectedDays = selectedDays,
+                excludedDays = excludedDays,
+                excludedDates = excludedDates,
+                notificationsEnabled = notificationsEnabled,
+                isAlarm = isAlarm,
+                importance = importance,
+                targetCount = targetCount,
+                endDate = endDate,
+                isOngoing = isOngoing
+            )
+            val id = repository.insertTaskHabit(entity)
+            if (notificationsEnabled && time.isNotEmpty()) {
+                val trigger = com.example.core.notification.AlarmScheduler.computeNextTriggerTime(
                     scheduledDate = date,
                     scheduledTime = time,
-                    recurrence = recurrence
+                    recurrence = recurrence,
+                    selectedDays = selectedDays,
+                    excludedDays = excludedDays,
+                    excludedDates = excludedDates,
+                    endDate = endDate,
+                    fromMillis = System.currentTimeMillis()
                 )
-            )
-            if (time.isNotEmpty()) {
-                try {
-                    val dateStr = if (date.isNotEmpty()) date else SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
-                    val format = SimpleDateFormat("yyyy-MM-dd hh:mm a", Locale.getDefault())
-                    val trigger = format.parse("$dateStr $time")?.time ?: 0L
-                    if (trigger > System.currentTimeMillis()) {
-                        com.example.core.notification.AlarmScheduler.scheduleTaskReminder(
-                            getApplication(),
-                            id,
-                            title,
-                            trigger,
-                            "রিমাইন্ডার: $title"
-                        )
-                    }
-                } catch (_: Exception) {}
+                if (trigger != null) {
+                    com.example.core.notification.AlarmScheduler.scheduleTaskReminder(
+                        getApplication(),
+                        id,
+                        title,
+                        trigger,
+                        "রিমাইন্ডার: $title",
+                        isAlarm = isAlarm
+                    )
+                }
             }
         }
     }
@@ -322,21 +360,28 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun updateTaskHabit(taskHabit: TaskHabitEntity) {
         viewModelScope.launch {
             repository.updateTaskHabit(taskHabit)
-            if (taskHabit.scheduledTime.isNotEmpty()) {
-                try {
-                    val dateStr = if (taskHabit.scheduledDate.isNotEmpty()) taskHabit.scheduledDate else SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
-                    val format = SimpleDateFormat("yyyy-MM-dd hh:mm a", Locale.getDefault())
-                    val trigger = format.parse("$dateStr ${taskHabit.scheduledTime}")?.time ?: 0L
-                    if (trigger > System.currentTimeMillis()) {
-                        com.example.core.notification.AlarmScheduler.scheduleTaskReminder(
-                            getApplication(),
-                            taskHabit.id,
-                            taskHabit.title,
-                            trigger,
-                            "রিমাইন্ডার: ${taskHabit.title}"
-                        )
-                    }
-                } catch (_: Exception) {}
+            com.example.core.notification.AlarmScheduler.cancelTaskReminder(getApplication(), taskHabit.id)
+            if (taskHabit.notificationsEnabled && taskHabit.scheduledTime.isNotEmpty()) {
+                val trigger = com.example.core.notification.AlarmScheduler.computeNextTriggerTime(
+                    scheduledDate = taskHabit.scheduledDate,
+                    scheduledTime = taskHabit.scheduledTime,
+                    recurrence = taskHabit.recurrence,
+                    selectedDays = taskHabit.selectedDays,
+                    excludedDays = taskHabit.excludedDays,
+                    excludedDates = taskHabit.excludedDates,
+                    endDate = taskHabit.endDate,
+                    fromMillis = System.currentTimeMillis()
+                )
+                if (trigger != null) {
+                    com.example.core.notification.AlarmScheduler.scheduleTaskReminder(
+                        getApplication(),
+                        taskHabit.id,
+                        taskHabit.title,
+                        trigger,
+                        "রিমাইন্ডার: ${taskHabit.title}",
+                        isAlarm = taskHabit.isAlarm
+                    )
+                }
             }
         }
     }
@@ -351,7 +396,69 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun toggleTaskCompletion(task: TaskHabitEntity) {
         viewModelScope.launch {
             val todayStr = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
-            repository.toggleTaskCompletion(task.id, !task.isCompleted, task.streakCount, todayStr)
+            if (task.type == "HABIT") {
+                val newProgress = if (!task.isCompleted) task.targetCount else 0
+                val isDone = newProgress >= task.targetCount
+                val newStreak = if (isDone) task.streakCount + 1 else maxOf(0, task.streakCount - 1)
+                repository.updateTaskHabit(
+                    task.copy(
+                        progressCount = newProgress,
+                        isCompleted = isDone,
+                        streakCount = newStreak,
+                        lastCompletedDate = if (isDone) todayStr else task.lastCompletedDate
+                    )
+                )
+            } else {
+                if (task.recurrence != "NONE") {
+                    val wasCompletedToday = task.lastCompletedDate == todayStr && task.isCompleted
+                    if (wasCompletedToday) {
+                        repository.updateTaskHabit(task.copy(isCompleted = false, lastCompletedDate = ""))
+                    } else {
+                        val newStreak = task.streakCount + 1
+                        repository.updateTaskHabit(task.copy(isCompleted = true, streakCount = newStreak, lastCompletedDate = todayStr))
+                        // Re-schedule future occurrence
+                        val nextTrigger = com.example.core.notification.AlarmScheduler.computeNextTriggerTime(
+                            scheduledDate = task.scheduledDate,
+                            scheduledTime = task.scheduledTime,
+                            recurrence = task.recurrence,
+                            selectedDays = task.selectedDays,
+                            excludedDays = task.excludedDays,
+                            excludedDates = task.excludedDates,
+                            endDate = task.endDate,
+                            fromMillis = System.currentTimeMillis() + 60000
+                        )
+                        if (nextTrigger != null && task.notificationsEnabled) {
+                            com.example.core.notification.AlarmScheduler.scheduleTaskReminder(
+                                getApplication(),
+                                task.id,
+                                task.title,
+                                nextTrigger,
+                                "রিমাইন্ডার: ${task.title}",
+                                isAlarm = task.isAlarm
+                            )
+                        }
+                    }
+                } else {
+                    repository.toggleTaskCompletion(task.id, !task.isCompleted, task.streakCount, todayStr)
+                }
+            }
+        }
+    }
+
+    fun incrementHabitProgress(habit: TaskHabitEntity) {
+        viewModelScope.launch {
+            val todayStr = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
+            val newProgress = habit.progressCount + 1
+            val isNowCompleted = newProgress >= habit.targetCount
+            val newStreak = if (isNowCompleted && !habit.isCompleted) habit.streakCount + 1 else habit.streakCount
+            repository.updateTaskHabit(
+                habit.copy(
+                    progressCount = newProgress,
+                    isCompleted = isNowCompleted,
+                    streakCount = newStreak,
+                    lastCompletedDate = if (isNowCompleted) todayStr else habit.lastCompletedDate
+                )
+            )
         }
     }
 
@@ -363,12 +470,48 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     // Exercise Plan
-    fun createExercisePlan(title: String, desc: String, restSec: Int, rounds: Int, items: List<ExerciseItemEntity>) {
+    fun createExercisePlan(
+        title: String,
+        desc: String,
+        restSec: Int,
+        rounds: Int,
+        startDate: String = "",
+        endDate: String = "",
+        startTime: String = "07:00 AM",
+        notificationsEnabled: Boolean = true,
+        items: List<ExerciseItemEntity>
+    ) {
         viewModelScope.launch {
-            repository.insertExercisePlan(
-                ExercisePlanEntity(title = title, description = desc, restDurationSeconds = restSec, rounds = rounds),
+            val planId = repository.insertExercisePlan(
+                ExercisePlanEntity(
+                    title = title,
+                    description = desc,
+                    restDurationSeconds = restSec,
+                    rounds = rounds,
+                    startDate = startDate,
+                    endDate = endDate,
+                    startTime = startTime,
+                    notificationsEnabled = notificationsEnabled
+                ),
                 items
             )
+            if (notificationsEnabled && startTime.isNotBlank()) {
+                val trigger = com.example.core.notification.AlarmScheduler.computeNextTriggerTime(
+                    scheduledDate = startDate,
+                    scheduledTime = startTime,
+                    recurrence = "DAILY",
+                    fromMillis = System.currentTimeMillis()
+                )
+                if (trigger != null) {
+                    com.example.core.notification.AlarmScheduler.scheduleTaskReminder(
+                        getApplication(),
+                        (planId + 100000),
+                        title,
+                        trigger,
+                        "ব্যায়ামের নির্ধারিত সময় হয়েছে!"
+                    )
+                }
+            }
         }
     }
 
@@ -377,8 +520,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     // Study
-    fun addBook(categoryId: Long, title: String, author: String) {
-        viewModelScope.launch { repository.insertStudyBook(categoryId, title, author) }
+    fun addBook(categoryId: Long, title: String, author: String, categoryType: String = "ACADEMIC") {
+        viewModelScope.launch { repository.insertStudyBook(categoryId, title, author, categoryType) }
+    }
+
+    fun updateStudyBook(book: StudyBookEntity) {
+        viewModelScope.launch { repository.updateStudyBook(book) }
     }
 
     fun deleteBook(bookId: Long) {
@@ -780,6 +927,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             message = String.format(I18n.t("backup_success_msg"), recordCount),
             totalCount = recordCount
         )
+    }
+
+    fun onBackupFailed(errorMessage: String) {
+        _backupRestoreState.value = BackupRestoreUiState.Error(errorMessage)
+    }
+
+    fun onRestoreFailed(errorMessage: String) {
+        _backupRestoreState.value = BackupRestoreUiState.Error(errorMessage)
     }
 
     fun onBackupFileSelected(content: String) {

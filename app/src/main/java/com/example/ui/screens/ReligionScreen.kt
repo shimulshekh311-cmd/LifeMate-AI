@@ -19,6 +19,7 @@ import com.example.data.local.entities.ReligiousActivityEntity
 import com.example.ui.components.ConfirmDeleteDialog
 import com.example.ui.components.EmptyStateView
 import com.example.ui.components.GlassCard
+import com.example.ui.components.TimePickerField
 import com.example.ui.theme.*
 import com.example.ui.viewmodel.MainViewModel
 
@@ -143,7 +144,7 @@ fun ReligionScreen(
     if (showAddDialog) {
         AddReligiousActivityDialog(
             onDismiss = { showAddDialog = false },
-            onSave = { title, time, notes ->
+            onSave = { title, time, notes, notif ->
                 viewModel.addReligiousActivity(title, time, notes)
                 showAddDialog = false
             }
@@ -220,11 +221,12 @@ fun ReligiousItemCard(
 @Composable
 fun AddReligiousActivityDialog(
     onDismiss: () -> Unit,
-    onSave: (String, String, String) -> Unit
+    onSave: (String, String, String, Boolean) -> Unit
 ) {
     var title by remember { mutableStateOf("") }
-    var time by remember { mutableStateOf("") }
+    var time by remember { mutableStateOf("05:00 AM") }
     var notes by remember { mutableStateOf("") }
+    var notificationsEnabled by remember { mutableStateOf(true) }
     var titleError by remember { mutableStateOf(false) }
 
     val prayerPresets = listOf(
@@ -299,12 +301,31 @@ fun AddReligiousActivityDialog(
                     )
                 }
                 item {
-                    OutlinedTextField(
-                        value = time,
-                        onValueChange = { time = it },
-                        label = { Text("সময় (যেমন: 05:00 AM)") },
-                        modifier = Modifier.fillMaxWidth()
+                    TimePickerField(
+                        label = if (I18n.currentLanguage == "bn") "আমল/প্রার্থনার সময় *" else "Observance Time *",
+                        selectedTime = time,
+                        onTimeSelected = { time = it }
                     )
+                }
+                item {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.Notifications, contentDescription = null, tint = EmeraldSuccess, modifier = Modifier.size(20.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = if (I18n.currentLanguage == "bn") "ওয়াক্ত/আমলের রিমাইন্ডার অ্যালার্ম" else "Reminder Alarm",
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                        }
+                        Switch(
+                            checked = notificationsEnabled,
+                            onCheckedChange = { notificationsEnabled = it }
+                        )
+                    }
                 }
                 item {
                     OutlinedTextField(
@@ -322,7 +343,7 @@ fun AddReligiousActivityDialog(
                     if (title.isBlank()) {
                         titleError = true
                     } else {
-                        onSave(title.trim(), time.trim(), notes.trim())
+                        onSave(title.trim(), time.trim(), notes.trim(), notificationsEnabled)
                     }
                 }
             ) {
@@ -369,12 +390,31 @@ fun EditReligiousActivityDialog(
                     )
                 }
                 item {
-                    OutlinedTextField(
-                        value = time,
-                        onValueChange = { time = it },
-                        label = { Text("সময় (যেমন: 05:00 AM)") },
-                        modifier = Modifier.fillMaxWidth()
+                    TimePickerField(
+                        label = if (I18n.currentLanguage == "bn") "আমল/প্রার্থনার সময় *" else "Observance Time *",
+                        selectedTime = time,
+                        onTimeSelected = { time = it }
                     )
+                }
+                item {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.Notifications, contentDescription = null, tint = EmeraldSuccess, modifier = Modifier.size(20.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = if (I18n.currentLanguage == "bn") "রিমাইন্ডার নোটিফিকেশন" else "Reminder Notification",
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                        }
+                        Switch(
+                            checked = activity.notificationsEnabled,
+                            onCheckedChange = { onSave(activity.copy(notificationsEnabled = it)) }
+                        )
+                    }
                 }
                 item {
                     OutlinedTextField(

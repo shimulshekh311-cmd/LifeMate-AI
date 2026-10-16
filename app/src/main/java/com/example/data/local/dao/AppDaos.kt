@@ -38,6 +38,9 @@ interface TaskHabitDao {
 
     @Query("UPDATE tasks_habits SET isCompleted = :isCompleted, streakCount = :streak, lastCompletedDate = :date WHERE id = :id")
     suspend fun updateCompletion(id: Long, isCompleted: Boolean, streak: Int, date: String)
+
+    @Query("UPDATE tasks_habits SET progressCount = :count WHERE id = :id")
+    suspend fun updateProgress(id: Long, count: Int)
 }
 
 @Dao
@@ -102,8 +105,14 @@ interface StudyDao {
     @Query("SELECT * FROM study_books ORDER BY id ASC")
     suspend fun getAllBooksList(): List<StudyBookEntity>
 
+    @Query("SELECT * FROM study_books WHERE categoryType = :categoryType ORDER BY id DESC")
+    fun getBooksByCategoryType(categoryType: String): Flow<List<StudyBookEntity>>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertBook(book: StudyBookEntity): Long
+
+    @Update
+    suspend fun updateBook(book: StudyBookEntity)
 
     @Query("DELETE FROM study_books WHERE id = :id")
     suspend fun deleteBookById(id: Long)

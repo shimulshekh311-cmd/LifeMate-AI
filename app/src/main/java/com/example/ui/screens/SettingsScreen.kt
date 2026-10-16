@@ -62,7 +62,7 @@ fun SettingsScreen(
                 val preview = viewModel.repository.backupRestoreManager.inspectBackupJson(pendingBackupJson!!)
                 viewModel.onBackupSavedSuccess(preview.totalRecords)
             } catch (e: Exception) {
-                viewModel.prepareBackupFile { /* no-op */ }
+                viewModel.onBackupFailed(e.localizedMessage ?: "Failed to write backup file")
             } finally {
                 pendingBackupJson = null
             }
@@ -91,7 +91,7 @@ fun SettingsScreen(
                 val content = stringBuilder.toString()
                 viewModel.onBackupFileSelected(content)
             } catch (e: Exception) {
-                viewModel.onRestoreCancelled()
+                viewModel.onRestoreFailed(e.localizedMessage ?: "Failed to read backup file")
             }
         } else {
             viewModel.onRestoreCancelled()
@@ -283,6 +283,38 @@ fun SettingsScreen(
                         modifier = Modifier.size(16.dp),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+                }
+
+                HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
+
+                // Last Backup Date Info
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Info,
+                        contentDescription = null,
+                        tint = CyberCyan,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Column {
+                        Text(
+                            text = I18n.t("last_backup_date"),
+                            style = MaterialTheme.typography.bodySmall,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        val lastDate = userPrefs?.lastBackupDate
+                        Text(
+                            text = if (!lastDate.isNullOrBlank()) lastDate else I18n.t("no_backup_yet"),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = if (!lastDate.isNullOrBlank()) EmeraldSuccess else MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
             }
         }

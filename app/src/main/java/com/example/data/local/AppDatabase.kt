@@ -29,7 +29,7 @@ import kotlinx.coroutines.launch
         AssistantMemoryEntity::class,
         UserPreferencesEntity::class
     ],
-    version = 1,
+    version = 2,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -46,6 +46,39 @@ abstract class AppDatabase : RoomDatabase() {
         @Volatile
         private var INSTANCE: AppDatabase? = null
 
+        val MIGRATION_1_2 = object : androidx.room.migration.Migration(1, 2) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                // 1. tasks_habits enhancements
+                db.execSQL("ALTER TABLE tasks_habits ADD COLUMN durationMinutes INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE tasks_habits ADD COLUMN selectedDays TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE tasks_habits ADD COLUMN excludedDays TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE tasks_habits ADD COLUMN excludedDates TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE tasks_habits ADD COLUMN notificationsEnabled INTEGER NOT NULL DEFAULT 1")
+                db.execSQL("ALTER TABLE tasks_habits ADD COLUMN isAlarm INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE tasks_habits ADD COLUMN importance TEXT NOT NULL DEFAULT 'LOW'")
+                db.execSQL("ALTER TABLE tasks_habits ADD COLUMN targetCount INTEGER NOT NULL DEFAULT 1")
+                db.execSQL("ALTER TABLE tasks_habits ADD COLUMN progressCount INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE tasks_habits ADD COLUMN endDate TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE tasks_habits ADD COLUMN isOngoing INTEGER NOT NULL DEFAULT 1")
+
+                // 2. exercise_plans enhancements
+                db.execSQL("ALTER TABLE exercise_plans ADD COLUMN startDate TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE exercise_plans ADD COLUMN endDate TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE exercise_plans ADD COLUMN startTime TEXT NOT NULL DEFAULT '07:00 AM'")
+                db.execSQL("ALTER TABLE exercise_plans ADD COLUMN notificationsEnabled INTEGER NOT NULL DEFAULT 1")
+
+                // 3. religious_activities enhancements
+                db.execSQL("ALTER TABLE religious_activities ADD COLUMN notificationsEnabled INTEGER NOT NULL DEFAULT 1")
+
+                // 4. study_books categoryType enhancement
+                db.execSQL("ALTER TABLE study_books ADD COLUMN categoryType TEXT NOT NULL DEFAULT 'ACADEMIC'")
+                db.execSQL("UPDATE study_books SET categoryType = 'JOB_PREPARATION' WHERE categoryId = 2")
+
+                // 5. user_preferences lastBackupDate
+                db.execSQL("ALTER TABLE user_preferences ADD COLUMN lastBackupDate TEXT NOT NULL DEFAULT ''")
+            }
+        }
+
         fun getInstance(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
                 val instance = Room.databaseBuilder(
@@ -53,6 +86,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "lifemate_database"
                 )
+                    .addMigrations(MIGRATION_1_2)
                     .fallbackToDestructiveMigration(false)
                     .addCallback(DatabaseCallback())
                     .build()

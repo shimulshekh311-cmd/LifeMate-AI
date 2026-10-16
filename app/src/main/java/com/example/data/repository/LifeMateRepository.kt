@@ -67,18 +67,23 @@ class LifeMateRepository(private val db: AppDatabase) {
     // Study
     val studyCategories: Flow<List<StudyCategoryEntity>> = db.studyDao().getCategories()
     val studyBooks: Flow<List<StudyBookEntity>> = db.studyDao().getBooks()
+    val jobPrepBooks: Flow<List<StudyBookEntity>> = db.studyDao().getBooksByCategoryType("JOB_PREPARATION")
+    val academicBooks: Flow<List<StudyBookEntity>> = db.studyDao().getBooksByCategoryType("ACADEMIC")
     val allStudyChapters: Flow<List<StudyChapterEntity>> = db.studyDao().getAllChapters()
     val studySessions: Flow<List<StudySessionHistoryEntity>> = db.studyDao().getStudySessions()
     suspend fun insertStudyCategory(name: String, colorHex: String) =
         db.studyDao().insertCategory(StudyCategoryEntity(name = name, colorHex = colorHex))
-    suspend fun insertStudyBook(categoryId: Long, title: String, author: String) =
-        db.studyDao().insertBook(StudyBookEntity(categoryId = categoryId, title = title, author = author))
+    suspend fun insertStudyBook(categoryId: Long, title: String, author: String, categoryType: String = "ACADEMIC") =
+        db.studyDao().insertBook(StudyBookEntity(categoryId = categoryId, title = title, author = author, categoryType = categoryType))
+    suspend fun updateStudyBook(book: StudyBookEntity) = db.studyDao().updateBook(book)
     suspend fun deleteStudyBook(id: Long) = db.studyDao().deleteBookById(id)
     suspend fun insertStudyChapter(chapter: StudyChapterEntity) = db.studyDao().insertChapter(chapter)
     suspend fun updateStudyChapter(chapter: StudyChapterEntity) = db.studyDao().updateChapter(chapter)
     suspend fun deleteStudyChapter(id: Long) = db.studyDao().deleteChapterById(id)
     suspend fun recordStudySession(session: StudySessionHistoryEntity) =
         db.studyDao().insertStudySession(session)
+
+    suspend fun updateHabitProgress(id: Long, count: Int) = db.taskHabitDao().updateProgress(id, count)
 
     // Religion
     val religiousActivities: Flow<List<ReligiousActivityEntity>> = db.religionDao().getAllActivities()

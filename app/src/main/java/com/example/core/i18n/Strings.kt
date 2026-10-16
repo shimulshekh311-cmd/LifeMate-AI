@@ -276,7 +276,37 @@ object I18n {
         "biometric_hw_unavailable" to "বায়োমেট্রিক হার্ডওয়্যার বর্তমানে অনুপলব্ধ।",
         "biometric_security_notice" to "পাসওয়ার্ডটি এনক্রিপ্ট করে রাখা হয়েছে। প্রয়োজন শেষ হলে ডায়ালগটি বন্ধ করুন।",
         "copy_password" to "কপি করুন",
-        "password_copied" to "পাসওয়ার্ড ক্লিপবোর্ডে কপি করা হয়েছে"
+        "password_copied" to "পাসওয়ার্ড ক্লিপবোর্ডে কপি করা হয়েছে",
+
+        // Enhancements
+        "last_backup_date" to "সর্বশেষ ব্যাকআপের তারিখ",
+        "no_backup_yet" to "এখনও কোনো ব্যাকআপ নেওয়া হয়নি",
+        "duration" to "সময়কাল (Duration)",
+        "duration_minutes" to "মিনিট",
+        "duration_hours" to "ঘণ্টা",
+        "remaining_time" to "বাকি সময়",
+        "importance" to "গুরুত্ব (Importance)",
+        "importance_low" to "Low (সাধারণ)",
+        "importance_high" to "High (জরুরি)",
+        "recurrence_none" to "একবার (None)",
+        "recurrence_daily" to "প্রতিদিন (Daily)",
+        "recurrence_weekdays" to "নির্দিষ্ট দিনসমূহ (Weekdays)",
+        "recurrence_custom_range" to "তারিখ সীমা (Custom Range)",
+        "habit_ongoing" to "চলমান (Ongoing)",
+        "habit_range" to "নির্দিষ্ট তারিখ সীমা",
+        "excluded_days" to "ছুটির দিন / বাদ দেওয়া দিন",
+        "excluded_dates" to "বাদ দেওয়া নির্দিষ্ট তারিখ",
+        "alarm_toggle" to "অ্যালার্ম বাজান",
+        "notification_toggle" to "রিমাইন্ডার নোটিফিকেশন",
+        "target_count" to "দৈনিক লক্ষ্যমাত্রা",
+        "category_job_prep" to "চাকরির প্রস্তুতি (Job Prep)",
+        "category_academic" to "একাডেমিক পড়াশোনা (Academic)",
+        "select_category" to "বইয়ের ক্যাটেগরি নির্বাচন করুন",
+        "empty_job_prep" to "চাকরির প্রস্তুতির কোনো বই যুক্ত নেই",
+        "empty_academic" to "একাডেমিক পড়াশোনার কোনো বই যুক্ত নেই",
+        "start_date" to "শুরুর তারিখ",
+        "end_date" to "শেষের তারিখ",
+        "start_time" to "শুরুর সময়"
     )
 
     private val enStrings = mapOf(
@@ -546,6 +576,36 @@ object I18n {
         "biometric_hw_unavailable" to "Biometric sensor currently unavailable.",
         "biometric_security_notice" to "Password is encrypted in secure Keystore. Close dialog when done.",
         "copy_password" to "Copy",
-        "password_copied" to "Password copied to clipboard"
+        "password_copied" to "Password copied to clipboard",
+
+        // Enhancements
+        "last_backup_date" to "Last Backup Date",
+        "no_backup_yet" to "No backup created yet",
+        "duration" to "Duration",
+        "duration_minutes" to "Minutes",
+        "duration_hours" to "Hours",
+        "remaining_time" to "Remaining Time",
+        "importance" to "Importance",
+        "importance_low" to "Low",
+        "importance_high" to "High",
+        "recurrence_none" to "None (Once)",
+        "recurrence_daily" to "Daily",
+        "recurrence_weekdays" to "Selected Weekdays",
+        "recurrence_custom_range" to "Custom Date Range",
+        "habit_ongoing" to "Ongoing Habit",
+        "habit_range" to "Fixed Date Range",
+        "excluded_days" to "Rest / Excluded Days",
+        "excluded_dates" to "Specific Excluded Dates",
+        "alarm_toggle" to "Sound Alarm",
+        "notification_toggle" to "Reminder Notification",
+        "target_count" to "Daily Target Count",
+        "category_job_prep" to "Job Preparation Books",
+        "category_academic" to "Academic Books",
+        "select_category" to "Select Book Category",
+        "empty_job_prep" to "No Job Preparation Books Added Yet",
+        "empty_academic" to "No Academic Books Added Yet",
+        "start_date" to "Start Date",
+        "end_date" to "End Date",
+        "start_time" to "Start Time"
     )
 }

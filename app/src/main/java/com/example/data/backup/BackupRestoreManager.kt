@@ -93,6 +93,17 @@ class BackupRestoreManager(private val db: AppDatabase) {
                 put("streakCount", t.streakCount)
                 put("lastCompletedDate", t.lastCompletedDate)
                 put("createdAtTimestamp", t.createdAtTimestamp)
+                put("durationMinutes", t.durationMinutes)
+                put("selectedDays", t.selectedDays)
+                put("excludedDays", t.excludedDays)
+                put("excludedDates", t.excludedDates)
+                put("notificationsEnabled", t.notificationsEnabled)
+                put("isAlarm", t.isAlarm)
+                put("importance", t.importance)
+                put("targetCount", t.targetCount)
+                put("progressCount", t.progressCount)
+                put("endDate", t.endDate)
+                put("isOngoing", t.isOngoing)
             }
             tasksArray.put(obj)
         }
@@ -111,6 +122,10 @@ class BackupRestoreManager(private val db: AppDatabase) {
                 put("scheduledDays", p.scheduledDays)
                 put("isArchived", p.isArchived)
                 put("createdAtTimestamp", p.createdAtTimestamp)
+                put("startDate", p.startDate)
+                put("endDate", p.endDate)
+                put("startTime", p.startTime)
+                put("notificationsEnabled", p.notificationsEnabled)
             }
             plansArray.put(obj)
         }
@@ -173,6 +188,7 @@ class BackupRestoreManager(private val db: AppDatabase) {
                 put("author", b.author)
                 put("totalChapters", b.totalChapters)
                 put("createdAtTimestamp", b.createdAtTimestamp)
+                put("categoryType", b.categoryType)
             }
             studyBooksArray.put(obj)
         }
@@ -264,6 +280,7 @@ class BackupRestoreManager(private val db: AppDatabase) {
                 put("isCompletedToday", r.isCompletedToday)
                 put("notes", r.notes)
                 put("lastCompletedDate", r.lastCompletedDate)
+                put("notificationsEnabled", r.notificationsEnabled)
             }
             religionArray.put(obj)
         }
@@ -331,6 +348,7 @@ class BackupRestoreManager(private val db: AppDatabase) {
                 put("isReligionModuleEnabled", prefs.isReligionModuleEnabled)
                 put("notificationsEnabled", prefs.notificationsEnabled)
                 put("soundVibrationEnabled", prefs.soundVibrationEnabled)
+                put("lastBackupDate", prefs.lastBackupDate)
             }
             root.put("user_preferences", prefsObj)
         }
@@ -874,7 +892,18 @@ class BackupRestoreManager(private val db: AppDatabase) {
                         isArchived = o.optBoolean("isArchived", false),
                         streakCount = o.optInt("streakCount", 0),
                         lastCompletedDate = o.optString("lastCompletedDate", ""),
-                        createdAtTimestamp = o.optLong("createdAtTimestamp", System.currentTimeMillis())
+                        createdAtTimestamp = o.optLong("createdAtTimestamp", System.currentTimeMillis()),
+                        durationMinutes = o.optInt("durationMinutes", 0),
+                        selectedDays = o.optString("selectedDays", ""),
+                        excludedDays = o.optString("excludedDays", ""),
+                        excludedDates = o.optString("excludedDates", ""),
+                        notificationsEnabled = o.optBoolean("notificationsEnabled", true),
+                        isAlarm = o.optBoolean("isAlarm", false),
+                        importance = o.optString("importance", "LOW"),
+                        targetCount = o.optInt("targetCount", 1),
+                        progressCount = o.optInt("progressCount", 0),
+                        endDate = o.optString("endDate", ""),
+                        isOngoing = o.optBoolean("isOngoing", true)
                     )
                 )
             }
@@ -897,7 +926,11 @@ class BackupRestoreManager(private val db: AppDatabase) {
                         rounds = o.optInt("rounds", 1),
                         scheduledDays = o.optString("scheduledDays", ""),
                         isArchived = o.optBoolean("isArchived", false),
-                        createdAtTimestamp = o.optLong("createdAtTimestamp", System.currentTimeMillis())
+                        createdAtTimestamp = o.optLong("createdAtTimestamp", System.currentTimeMillis()),
+                        startDate = o.optString("startDate", ""),
+                        endDate = o.optString("endDate", ""),
+                        startTime = o.optString("startTime", "07:00 AM"),
+                        notificationsEnabled = o.optBoolean("notificationsEnabled", true)
                     )
                 )
             }
@@ -985,7 +1018,8 @@ class BackupRestoreManager(private val db: AppDatabase) {
                         title = o.getString("title"),
                         author = o.optString("author", ""),
                         totalChapters = o.optInt("totalChapters", 0),
-                        createdAtTimestamp = o.optLong("createdAtTimestamp", System.currentTimeMillis())
+                        createdAtTimestamp = o.optLong("createdAtTimestamp", System.currentTimeMillis()),
+                        categoryType = o.optString("categoryType", "ACADEMIC")
                     )
                 )
             }
@@ -1113,7 +1147,8 @@ class BackupRestoreManager(private val db: AppDatabase) {
                         scheduledTime = o.optString("scheduledTime", ""),
                         isCompletedToday = o.optBoolean("isCompletedToday", false),
                         notes = o.optString("notes", ""),
-                        lastCompletedDate = o.optString("lastCompletedDate", "")
+                        lastCompletedDate = o.optString("lastCompletedDate", ""),
+                        notificationsEnabled = o.optBoolean("notificationsEnabled", true)
                     )
                 )
             }
@@ -1195,7 +1230,8 @@ class BackupRestoreManager(private val db: AppDatabase) {
                 themeMode = o.optString("themeMode", "system"),
                 isReligionModuleEnabled = o.optBoolean("isReligionModuleEnabled", true),
                 notificationsEnabled = o.optBoolean("notificationsEnabled", true),
-                soundVibrationEnabled = o.optBoolean("soundVibrationEnabled", true)
+                soundVibrationEnabled = o.optBoolean("soundVibrationEnabled", true),
+                lastBackupDate = o.optString("lastBackupDate", "")
             )
         }
 
